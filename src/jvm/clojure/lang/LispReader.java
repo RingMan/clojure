@@ -553,7 +553,7 @@ public static class RegexReader extends AFn{
 }
 
 public static class StringReader extends AFn{
-	static private int readEscapeSequence(PushbackReader r){
+	private int readEscapeSequence(PushbackReader r){
 		int ch = read1(r);
 		if(ch == -1)
 			throw Util.runtimeException("EOF while reading string");
