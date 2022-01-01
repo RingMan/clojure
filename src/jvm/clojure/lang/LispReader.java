@@ -598,14 +598,14 @@ public static class StringReader extends AFn{
 
 	public Object invoke(Object reader, Object doublequote, Object opts, Object pendingForms) {
 		StringBuilder sb = new StringBuilder();
-		Reader r = (Reader) reader;
+		PushbackReader r = (PushbackReader) reader;
 
 		for(int ch = read1(r); ch != '"'; ch = read1(r))
 			{
 			if(ch == -1)
 				throw Util.runtimeException("EOF while reading string");
 			if(ch == '\\')	//escape
-				ch = readEscapeSequence((PushbackReader) r);
+				ch = readEscapeSequence(r);
 			sb.append((char) ch);
 			}
 		return sb.toString();
