@@ -596,11 +596,83 @@ public static class StringReader extends AFn{
 			}
 	}
 
+	private Object readRawString(PushbackReader r){
+		StringBuilder delims = new StringBuilder();
+		delims.append(')');
+		int ch = read1(r);
+		while(ch != '(')
+			{
+			if(ch == -1)
+				throw Util.runtimeException("EOF while reading raw string");
+			delims.append((char) ch);
+			ch = read1(r);
+			//TODO: ensure valid raw delimiter char
+			//TODO: enforce max delimiter length (16 or less)
+			}
+
+		//System.out.println("delims = '" + delims.toString() + "'");
+		StringBuilder sb = new StringBuilder();
+		int ix = -1;
+		while(ix + 1 < delims.length()) {
+			ch = read1(r);
+			if(ch == -1)
+				throw Util.runtimeException("EOF while reading raw string");
+
+			if(delims.charAt(ix+1) == ch) {
+				//System.out.println("delim ch = " + (char) ch);
+				++ix;
+			} else {
+				for(int i = 0; i <= ix; ++i) {
+					//System.out.println("buf ch = " + delims.charAt(i));
+					sb.append(delims.charAt(i));
+				}
+
+				if(delims.charAt(0) == ch) {
+					//System.out.println("delim ch = " + (char) ch);
+					ix = 0;
+				}
+				else {
+					//System.out.println("raw ch = " + (char) ch);
+					sb.append((char) ch);
+					ix = -1;
+				}
+			}
+		}
+
+		int extra = -1;
+		for(ch = read1(r); ch != '"'; ch = read1(r))
+			{
+			if(ch == -1)
+				throw Util.runtimeException("EOF while reading raw string");
+			++extra;
+			}
+
+		if(extra > 0)
+			throw Util.runtimeException("Extra characters after raw string delimiter and before closing double quote");
+
+		return sb.toString();
+	}
+
 	public Object invoke(Object reader, Object doublequote, Object opts, Object pendingForms) {
 		StringBuilder sb = new StringBuilder();
 		PushbackReader r = (PushbackReader) reader;
 
-		for(int ch = read1(r); ch != '"'; ch = read1(r))
+		int ch = read1(r);
+		if(ch == '\\')	//escape
+			{
+			int ch2 = read1(r);
+			if(ch2 == 'R')
+				return readRawString(r);
+			else
+				{
+				unread(r, ch2);
+				sb.append((char) readEscapeSequence(r));
+				}
+			}
+		else
+			unread(r, ch);
+
+		for(ch = read1(r); ch != '"'; ch = read1(r))
 			{
 			if(ch == -1)
 				throw Util.runtimeException("EOF while reading string");
