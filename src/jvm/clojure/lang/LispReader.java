@@ -553,6 +553,49 @@ public static class RegexReader extends AFn{
 }
 
 public static class StringReader extends AFn{
+	static private int readEscapeSequence(PushbackReader r){
+		int ch = read1(r);
+		if(ch == -1)
+			throw Util.runtimeException("EOF while reading string");
+		switch(ch)
+			{
+			case 't':
+				return '\t';
+			case 'r':
+				return '\r';
+			case 'n':
+				return '\n';
+			case '\\':
+				return '\\';
+			case '"':
+				return '"';
+			case 'b':
+				return '\b';
+			case 'f':
+				return '\f';
+			case 'u':
+				{
+				ch = read1(r);
+				if (Character.digit(ch, 16) == -1)
+					throw Util.runtimeException("Invalid unicode escape: \\u" + (char) ch);
+				ch = readUnicodeChar(r, ch, 16, 4, true);
+				return ch;
+				}
+			default:
+				{
+				if(Character.isDigit(ch))
+					{
+					ch = readUnicodeChar(r, ch, 8, 3, false);
+					if(ch > 0377)
+						throw Util.runtimeException("Octal escape sequence must be in range [0, 377].");
+					return ch;
+					}
+				else
+					throw Util.runtimeException("Unsupported escape character: \\" + (char) ch);
+				}
+			}
+	}
+
 	public Object invoke(Object reader, Object doublequote, Object opts, Object pendingForms) {
 		StringBuilder sb = new StringBuilder();
 		Reader r = (Reader) reader;
@@ -562,52 +605,7 @@ public static class StringReader extends AFn{
 			if(ch == -1)
 				throw Util.runtimeException("EOF while reading string");
 			if(ch == '\\')	//escape
-				{
-				ch = read1(r);
-				if(ch == -1)
-					throw Util.runtimeException("EOF while reading string");
-				switch(ch)
-					{
-					case 't':
-						ch = '\t';
-						break;
-					case 'r':
-						ch = '\r';
-						break;
-					case 'n':
-						ch = '\n';
-						break;
-					case '\\':
-						break;
-					case '"':
-						break;
-					case 'b':
-						ch = '\b';
-						break;
-					case 'f':
-						ch = '\f';
-						break;
-					case 'u':
-					{
-					ch = read1(r);
-					if (Character.digit(ch, 16) == -1)
-						throw Util.runtimeException("Invalid unicode escape: \\u" + (char) ch);
-					ch = readUnicodeChar((PushbackReader) r, ch, 16, 4, true);
-					break;
-					}
-					default:
-					{
-					if(Character.isDigit(ch))
-						{
-						ch = readUnicodeChar((PushbackReader) r, ch, 8, 3, false);
-						if(ch > 0377)
-							throw Util.runtimeException("Octal escape sequence must be in range [0, 377].");
-						}
-					else
-						throw Util.runtimeException("Unsupported escape character: \\" + (char) ch);
-					}
-					}
-				}
+				ch = readEscapeSequence((PushbackReader) r);
 			sb.append((char) ch);
 			}
 		return sb.toString();
