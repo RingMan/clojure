@@ -603,7 +603,7 @@ public static class StringReader extends AFn{
 		while(ch != '(')
 			{
 			if(ch == -1)
-				throw Util.runtimeException("EOF while reading raw string");
+				throw Util.runtimeException("EOF while reading raw string prefix: expected '('");
 			delims.append((char) ch);
 			ch = read1(r);
 			//TODO: ensure valid raw delimiter char
@@ -616,7 +616,8 @@ public static class StringReader extends AFn{
 		while(ix + 1 < delims.length()) {
 			ch = read1(r);
 			if(ch == -1)
-				throw Util.runtimeException("EOF while reading raw string");
+				throw Util.runtimeException("EOF while reading raw string: expected '" +
+                                            delims.charAt(ix+1) + "'");
 
 			if(delims.charAt(ix+1) == ch) {
 				//System.out.println("delim ch = " + (char) ch);
@@ -639,11 +640,11 @@ public static class StringReader extends AFn{
 			}
 		}
 
-		int extra = -1;
+		int extra = 0;
 		for(ch = read1(r); ch != '"'; ch = read1(r))
 			{
 			if(ch == -1)
-				throw Util.runtimeException("EOF while reading raw string");
+				throw Util.runtimeException("EOF while reading raw string: expected closing double quote");
 			++extra;
 			}
 
