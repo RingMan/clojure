@@ -120,6 +120,21 @@
              Exception #"Invalid character length: 3, should be: 4" "\\u004"
              Exception #"Invalid digit: g" "\\u004g")))))
 
+(deftest RawStrings
+  (is (= "\R(abcde)" (str \a \b \c \d \e)))
+  (is (= "\R(\r\n\t\b\f\0\\)"
+         (str \\ \r \\ \n \\ \t \\ \b \\ \f \\ \0 \\ \\)))
+  (is (= "\R(abc
+  def)" (str \a \b \c \newline \space \space \d \e \f)))
+  (testing "Errors reading raw string literals"
+    (are [err msg form] (thrown-with-cause-msg? err msg (read-string form))
+         Exception #"EOF while reading raw string prefix" "\Rerr("\R")err"
+         Exception #"EOF while reading raw string: expected '\)'" "\Rerr("\R()err"
+         Exception #"EOF while reading raw string: expected 'x'" "\Rerr("\Rx())err"
+         Exception #"EOF while reading raw string: expected 'y'" "\Rerr("\Rxy()x)err"
+         Exception #"EOF while reading raw string: expected closing double quote" "\Rerr("\Rxy()xy)err"
+         Exception #"Extra characters after raw string delimiter" "\Rerr("\Rxy()xyz")err")))
+
 ;; Numbers
 
 (deftest Numbers
