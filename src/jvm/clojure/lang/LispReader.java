@@ -912,14 +912,14 @@ public static class DispatchReader extends AFn{
 
 		// Try the ctor reader first
 		if(fn == null) {
-		unread((PushbackReader) reader, ch);
-		pendingForms = ensurePending(pendingForms);
-		Object result = ctorReader.invoke(reader, ch, opts, pendingForms);
+			unread((PushbackReader) reader, ch);
+			pendingForms = ensurePending(pendingForms);
+			Object result = ctorReader.invoke(reader, ch, opts, pendingForms);
 
-		if(result != null)
-			return result;
-		else
-			throw Util.runtimeException(String.format("No dispatch macro for: %c", (char) ch));
+			if(result != null)
+				return result;
+			else
+				throw Util.runtimeException(String.format("No dispatch macro for: %c", (char) ch));
 		}
 		return fn.invoke(reader, ch, opts, pendingForms);
 	}
@@ -1505,15 +1505,15 @@ public static class CtorReader extends AFn{
 		ILookup data_readers = (ILookup)RT.DATA_READERS.deref();
 		IFn data_reader = (IFn)RT.get(data_readers, tag);
 		if(data_reader == null){
-		data_readers = (ILookup)RT.DEFAULT_DATA_READERS.deref();
-		data_reader = (IFn)RT.get(data_readers, tag);
-		if(data_reader == null){
-		IFn default_reader = (IFn)RT.DEFAULT_DATA_READER_FN.deref();
-		if(default_reader != null)
-			return default_reader.invoke(tag, o);
-		else
-			throw new RuntimeException("No reader function for tag " + tag.toString());
-		}
+			data_readers = (ILookup)RT.DEFAULT_DATA_READERS.deref();
+			data_reader = (IFn)RT.get(data_readers, tag);
+			if(data_reader == null){
+				IFn default_reader = (IFn)RT.DEFAULT_DATA_READER_FN.deref();
+				if(default_reader != null)
+					return default_reader.invoke(tag, o);
+				else
+					throw new RuntimeException("No reader function for tag " + tag.toString());
+			}
 		}
 
 		return data_reader.invoke(o);
