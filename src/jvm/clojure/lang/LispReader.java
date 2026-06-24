@@ -667,6 +667,19 @@ private static int readEscapeSequence(PushbackReader r, boolean canEscapeAny){
 			ch = readUnicodeChar(r, ch, 16, 4, true);
 			return ch;
 			}
+		case 'o':
+			{
+			ch = read1(r);
+			if(Character.isDigit(ch))
+				{
+				ch = readUnicodeChar(r, ch, 8, 3, false);
+				if(ch > 0377)
+					throw Util.runtimeException("Octal escape sequence must be in range [0, 377].");
+				return ch;
+				}
+			else
+				throw Util.runtimeException("Invalid character (not digit) in octal escape sequence: \\" + (char) ch);
+			}
 		default:
 			{
 			if(Character.isDigit(ch))
