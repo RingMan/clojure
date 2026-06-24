@@ -533,8 +533,67 @@ static private boolean isMacro(int ch){
 	return (ch < macros.length && macros[ch] != null);
 }
 
+//DMK TODO: maybe only collection delims terminate
 static private boolean isTerminatingMacro(int ch){
 	return (ch != '#' && ch != '\'' && ch != '%' && isMacro(ch));
+}
+
+private static Object readRawString(PushbackReader r, char termch){
+	StringBuilder delims = new StringBuilder();
+	delims.append(')');
+	int ch = read1(r);
+	while(ch != '(')
+		{
+		if(ch == -1)
+			throw Util.runtimeException("EOF while reading raw string prefix: expected '('");
+		delims.append((char) ch);
+		ch = read1(r);
+		//TODO: ensure valid raw delimiter char
+		//TODO: enforce max delimiter length (16 or less)
+		}
+
+	//System.out.println("delims = '" + delims.toString() + "'");
+	StringBuilder sb = new StringBuilder();
+	int ix = -1;
+	while(ix + 1 < delims.length()) {
+		ch = read1(r);
+		if(ch == -1)
+			throw Util.runtimeException("EOF while reading raw string: expected '" +
+                                        delims.charAt(ix+1) + "'");
+
+		if(delims.charAt(ix+1) == ch) {
+			//System.out.println("delim ch = " + (char) ch);
+			++ix;
+		} else {
+			for(int i = 0; i <= ix; ++i) {
+				//System.out.println("buf ch = " + delims.charAt(i));
+				sb.append(delims.charAt(i));
+			}
+
+			if(delims.charAt(0) == ch) {
+				//System.out.println("delim ch = " + (char) ch);
+				ix = 0;
+			}
+			else {
+				//System.out.println("raw ch = " + (char) ch);
+				sb.append((char) ch);
+				ix = -1;
+			}
+		}
+	}
+
+	int extra = 0;
+	for(ch = read1(r); ch != termch; ch = read1(r))
+		{
+		if(ch == -1)
+			throw Util.runtimeException("EOF while reading raw string: expected closing double quote");
+		++extra;
+		}
+
+	if(extra > 0)
+		throw Util.runtimeException("Extra characters after raw string delimiter and before closing double quote");
+
+	return sb.toString();
 }
 
 public static class RegexReader extends AFn{
@@ -604,64 +663,6 @@ public static class StringReader extends AFn{
 			}
 	}
 
-	private Object readRawString(PushbackReader r){
-		StringBuilder delims = new StringBuilder();
-		delims.append(')');
-		int ch = read1(r);
-		while(ch != '(')
-			{
-			if(ch == -1)
-				throw Util.runtimeException("EOF while reading raw string prefix: expected '('");
-			delims.append((char) ch);
-			ch = read1(r);
-			//TODO: ensure valid raw delimiter char
-			//TODO: enforce max delimiter length (16 or less)
-			}
-
-		//System.out.println("delims = '" + delims.toString() + "'");
-		StringBuilder sb = new StringBuilder();
-		int ix = -1;
-		while(ix + 1 < delims.length()) {
-			ch = read1(r);
-			if(ch == -1)
-				throw Util.runtimeException("EOF while reading raw string: expected '" +
-                                            delims.charAt(ix+1) + "'");
-
-			if(delims.charAt(ix+1) == ch) {
-				//System.out.println("delim ch = " + (char) ch);
-				++ix;
-			} else {
-				for(int i = 0; i <= ix; ++i) {
-					//System.out.println("buf ch = " + delims.charAt(i));
-					sb.append(delims.charAt(i));
-				}
-
-				if(delims.charAt(0) == ch) {
-					//System.out.println("delim ch = " + (char) ch);
-					ix = 0;
-				}
-				else {
-					//System.out.println("raw ch = " + (char) ch);
-					sb.append((char) ch);
-					ix = -1;
-				}
-			}
-		}
-
-		int extra = 0;
-		for(ch = read1(r); ch != '"'; ch = read1(r))
-			{
-			if(ch == -1)
-				throw Util.runtimeException("EOF while reading raw string: expected closing double quote");
-			++extra;
-			}
-
-		if(extra > 0)
-			throw Util.runtimeException("Extra characters after raw string delimiter and before closing double quote");
-
-		return sb.toString();
-	}
-
 	public Object invoke(Object reader, Object doublequote, Object opts, Object pendingForms) {
 		StringBuilder sb = new StringBuilder();
 		PushbackReader r = (PushbackReader) reader;
@@ -671,7 +672,7 @@ public static class StringReader extends AFn{
 			{
 			int ch2 = read1(r);
 			if(ch2 == 'R')
-				return readRawString(r);
+				return readRawString(r, '"');
 			else
 				{
 				unread(r, ch2);
@@ -695,8 +696,26 @@ public static class StringReader extends AFn{
 
 public static class CommentReader extends AFn{
 	public Object invoke(Object reader, Object semicolon, Object opts, Object pendingForms) {
-		Reader r = (Reader) reader;
-		int ch;
+		PushbackReader r = (PushbackReader) reader;
+		int ch = read1(r);
+
+		if(ch == '\\')	//escape
+			{
+			int ch2 = read1(r);
+			if(ch2 == 'R')
+				{
+				Object s = readRawString(r, ';');
+				return r;
+				}
+			else
+				{
+				unread(r, ch2);
+				//don't need to unread the backslash
+				}
+			}
+		else
+			unread(r, ch);
+
 		do
 			{
 			ch = read1(r);
