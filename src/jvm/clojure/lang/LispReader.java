@@ -590,49 +590,38 @@ private static Object readRawString(PushbackReader r, char termch){
 		//TODO: enforce max delimiter length (16 or less)
 		}
 
+	if(termch != '\0')
+		delims.append(termch);
+
 	//System.out.println("delims = '" + delims.toString() + "'");
 	StringBuilder sb = new StringBuilder();
-	int ix = -1;
-	while(ix + 1 < delims.length()) {
+	int ix = 0;
+	while(ix < delims.length()) {
 		ch = read1(r);
 		if(ch == -1)
 			throw Util.runtimeException("EOF while reading raw string: expected '" +
-                                        delims.charAt(ix+1) + "'");
+                                        delims.charAt(ix) + "'");
 
-		if(delims.charAt(ix+1) == ch) {
+		if(delims.charAt(ix) == ch) {
 			//System.out.println("delim ch = " + (char) ch);
 			++ix;
 		} else {
-			for(int i = 0; i <= ix; ++i) {
+			for(int i = 0; i < ix; ++i) {
 				//System.out.println("buf ch = " + delims.charAt(i));
 				sb.append(delims.charAt(i));
 			}
 
 			if(delims.charAt(0) == ch) {
 				//System.out.println("delim ch = " + (char) ch);
-				ix = 0;
+				ix = 1;
 			}
 			else {
 				//System.out.println("raw ch = " + (char) ch);
 				sb.append((char) ch);
-				ix = -1;
+				ix = 0;
 			}
 		}
 	}
-
-	int extra = 0;
-	if(termch != '\0')
-		{
-		for(ch = read1(r); ch != termch; ch = read1(r))
-			{
-			if(ch == -1)
-				throw Util.runtimeException("EOF while reading raw string: expected " + termch);
-			++extra;
-			}
-		}
-
-	if(extra > 0)
-		throw Util.runtimeException("Extra characters after raw string delimiter and before " + termch);
 
 	return sb.toString();
 }
