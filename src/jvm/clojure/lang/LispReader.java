@@ -583,15 +583,18 @@ private static Object readRawString(PushbackReader r, char termch){
 	}
 
 	int extra = 0;
-	for(ch = read1(r); ch != termch; ch = read1(r))
+	if(termch != '\0')
 		{
-		if(ch == -1)
-			throw Util.runtimeException("EOF while reading raw string: expected closing double quote");
-		++extra;
+		for(ch = read1(r); ch != termch; ch = read1(r))
+			{
+			if(ch == -1)
+				throw Util.runtimeException("EOF while reading raw string: expected " + termch);
+			++extra;
+			}
 		}
 
 	if(extra > 0)
-		throw Util.runtimeException("Extra characters after raw string delimiter and before closing double quote");
+		throw Util.runtimeException("Extra characters after raw string delimiter and before " + termch);
 
 	return sb.toString();
 }
