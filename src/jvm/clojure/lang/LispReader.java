@@ -568,7 +568,8 @@ static private boolean isMacro(int ch){
 
 //DMK TODO: maybe only collection delims terminate
 static private boolean isTerminatingMacro(int ch){
-	return (ch != '#' && ch != '\'' && ch != '%' && isMacro(ch));
+	// return (ch != '#' && ch != '\'' && ch != '%' && isMacro(ch));
+	return (ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}');
 }
 
 private static Object readRawString(PushbackReader r, char termch){
