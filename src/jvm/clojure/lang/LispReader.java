@@ -321,9 +321,42 @@ static private String readToken(PushbackReader r, char initch) {
 	StringBuilder sb = new StringBuilder();
 	sb.append(initch);
 
+	int ch = read1(r);
+	if(ch == '\\')	//escape
+		{
+		if(initch == ':' || initch == '\\')
+			{
+			int ch2 = read1(r);
+			if(ch2 == 'R')
+				{
+				String s = (String) readRawString(r, '\0');
+				if(initch == ':')
+					return ":" + s;
+				else
+					return s;
+				}
+			else
+				{
+				unread(r, ch2);
+				sb.append((char) readEscapeSequence(r, true));
+				}
+			}
+		else
+			{
+			sb.append((char) readEscapeSequence(r, true));
+			}
+		}
+	else
+		unread(r, ch);
+
 	for(; ;)
 		{
-		int ch = read1(r);
+		ch = read1(r);
+		if(ch == '\\')	//escape
+			{
+			sb.append((char) readEscapeSequence(r, true));
+			continue;
+			}
 		if(ch == -1 || isWhitespace(ch) || isTerminatingMacro(ch))
 			{
 			unread(r, ch);
@@ -599,7 +632,7 @@ private static Object readRawString(PushbackReader r, char termch){
 	return sb.toString();
 }
 
-private static int readEscapeSequence(PushbackReader r){
+private static int readEscapeSequence(PushbackReader r, boolean canEscapeAny){
 	int ch = read1(r);
 	if(ch == -1)
 		throw Util.runtimeException("EOF while reading string");
@@ -638,6 +671,8 @@ private static int readEscapeSequence(PushbackReader r){
 					throw Util.runtimeException("Octal escape sequence must be in range [0, 377].");
 				return ch;
 				}
+			else if(canEscapeAny)
+				return (char) ch;
 			else
 				throw Util.runtimeException("Unsupported escape character: \\" + (char) ch);
 			}
@@ -681,7 +716,7 @@ public static class StringReader extends AFn{
 			else
 				{
 				unread(r, ch2);
-				sb.append((char) readEscapeSequence(r));
+				sb.append((char) readEscapeSequence(r, false));
 				}
 			}
 		else
@@ -692,7 +727,7 @@ public static class StringReader extends AFn{
 			if(ch == -1)
 				throw Util.runtimeException("EOF while reading string");
 			if(ch == '\\')	//escape
-				ch = readEscapeSequence(r);
+				ch = readEscapeSequence(r, false);
 			sb.append((char) ch);
 			}
 		return sb.toString();
