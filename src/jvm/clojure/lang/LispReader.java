@@ -103,7 +103,7 @@ static
 	macros['{'] = new MapReader();
 	macros['}'] = new UnmatchedDelimiterReader();
 //	macros['|'] = new ArgVectorReader();
-	macros['\\'] = new CharacterReader();
+	macros['\\'] = new BackslashReader(); // CharacterReader();
 	macros['%'] = new ArgReader();
 	macros['#'] = new DispatchReader();
 
@@ -572,6 +572,10 @@ static private boolean isTerminatingMacro(int ch){
 	return (ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}');
 }
 
+static private boolean isClosingDelim(int ch){
+	return (ch == ')' || ch == ']' || ch == '}');
+}
+
 private static Object readRawString(PushbackReader r, char termch){
 	StringBuilder delims = new StringBuilder();
 	delims.append(')');
@@ -717,7 +721,8 @@ public static class StringReader extends AFn{
 			else
 				{
 				unread(r, ch2);
-				sb.append((char) readEscapeSequence(r, false));
+				//DMK: Allow any esc here to support esc at beginning of quoted kw
+				sb.append((char) readEscapeSequence(r, true));
 				}
 			}
 		else
@@ -1317,6 +1322,94 @@ static class UnquoteReader extends AFn{
 			Object o = read(r, true, null, true, opts, pendingForms);
 			return RT.list(UNQUOTE, o);
 			}
+	}
+
+}
+
+public static class BackslashReader extends AFn{
+	static StringReader stringrdr = new StringReader();
+
+	public Object invoke(Object reader, Object backslash, Object opts, Object pendingForms) {
+		PushbackReader r = (PushbackReader) reader;
+		int ch = read1(r);
+		// if(ch == -1)
+		// 	throw Util.runtimeException("EOF while reading character");
+		if(ch == -1 || Character.isWhitespace(ch)) // \ as a one-char symbol
+			{
+			System.out.println("b-slash as sym: \\");
+			return Symbol.intern("\\");
+			}
+		int ch2 = read1(r);
+		// cases:
+			// naked \
+			// ch not ws, ch2 is => simple char lit
+		// look for ch of " followed by not space
+			// then quoted sym
+		// if ch is also \ check for sp
+		if(ch2 == -1 || isWhitespace(ch2) || isClosingDelim(ch2))
+			{
+			//if(isClosingDelim(ch2))
+				unread(r, ch2);
+			System.out.println("plain char lit: " + (char) ch);
+			return Character.valueOf((char) ch);
+			}
+		// now we have leading \ and two chars after
+		// either a quoted sym, raw sym, unquoted sym, or named char lit
+		if(ch == '"')
+			{
+			System.out.println("quoted sym");
+			unread(r, ch2);
+			return Symbol.intern((String) stringrdr.invoke(r, (char) ch, opts, pendingForms));
+			}
+		if(ch == 'R')
+			{
+			System.out.println("raw sym");
+			unread(r, ch2);
+			return Symbol.intern((String) readRawString(r, '\0'));
+			}
+		if(ch == '\\')
+			{
+			System.out.println("escaped sym");
+			unread(r, ch2);
+			ch = readEscapeSequence(r, true);
+			return Symbol.intern(readToken(r, (char) ch));
+			}
+		else
+			unread(r, ch2);
+
+		String token = readToken(r, (char) ch);
+		if(token.equals("newline"))
+			return '\n';
+		else if(token.equals("space"))
+			return ' ';
+		else if(token.equals("tab"))
+			return '\t';
+		else if(token.equals("backspace"))
+			return '\b';
+		else if(token.equals("formfeed"))
+			return '\f';
+		else if(token.equals("return"))
+			return '\r';
+		else if(token.startsWith("u"))
+			{
+			char c = (char) readUnicodeChar(token, 1, 4, 16);
+			if(c >= '\uD800' && c <= '\uDFFF') // surrogate code unit?
+				throw Util.runtimeException("Invalid character constant: \\u" + Integer.toString(c, 16));
+			return c;
+			}
+		else if(token.startsWith("o"))
+			{
+			int len = token.length() - 1;
+			if(len > 3)
+				throw Util.runtimeException("Invalid octal escape sequence length: " + len);
+			int uc = readUnicodeChar(token, 1, len, 8);
+			if(uc > 0377)
+				throw Util.runtimeException("Octal escape sequence must be in range [0, 377].");
+			return (char) uc;
+			}
+		System.out.println("BackslashReader: esc sym " + token);
+		return Symbol.intern(token);
+		//throw Util.runtimeException("Unsupported character: \\" + token);
 	}
 
 }
